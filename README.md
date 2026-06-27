@@ -1,17 +1,34 @@
-1. Copy the Overture Parquet dataset to your local machine to `overture` dir:
-  [Use these docs](https://github.com/OvertureMaps/data/blob/main/README.md#how-to-access-overture-maps-data). You don't need Microsoft Synapse or AWS Athena.
-2. Install DuckDB and run this script:
-  ```sql
-COPY (select json_extract(bbox,'$.minx') as x,
-        json_extract(bbox,'$.miny') as y,
-        json_extract_string(names, '$.common[0].value') as name,
-        json_extract_string(categories, '$.main') as category_main,
-        from read_parquet('overture/theme=places/type=place/*')) TO 'pois.csv' (HEADER, DELIMITER ',');
-  ```
-3. Feed `pois.csv` into [felt/tippecanoe](https://github.com/felt/tippecanoe):
+# overture-tiles
 
-```sh
-tippecanoe -o overture-pois.pmtiles pois.csv -M 80000 --drop-densest-as-needed
-```
+Turn [Overture Maps](https://overturemaps.org/) places data into a self-hosted
+PMTiles layer using DuckDB — no Microsoft Synapse or AWS Athena needed.
 
-Bob's your uncle!
+## Requirements
+
+- [DuckDB](https://duckdb.org/)
+- [felt/tippecanoe](https://github.com/felt/tippecanoe)
+
+## Usage
+
+1. Download the Overture Parquet dataset into an `overture/` directory
+   ([how to access Overture data](https://github.com/OvertureMaps/data/blob/main/README.md#how-to-access-overture-maps-data)).
+
+2. Extract places into `pois.csv` with DuckDB:
+
+   ```sql
+   COPY (
+     SELECT json_extract(bbox, '$.minx')                   AS x,
+            json_extract(bbox, '$.miny')                   AS y,
+            json_extract_string(names, '$.common[0].value') AS name,
+            json_extract_string(categories, '$.main')       AS category_main
+     FROM read_parquet('overture/theme=places/type=place/*')
+   ) TO 'pois.csv' (HEADER, DELIMITER ',');
+   ```
+
+3. Build vector tiles with tippecanoe:
+
+   ```sh
+   tippecanoe -o overture-pois.pmtiles pois.csv -M 80000 --drop-densest-as-needed
+   ```
+
+That's it — `overture-pois.pmtiles` is ready to serve.
